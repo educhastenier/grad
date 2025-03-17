@@ -9,15 +9,49 @@ import (
 	"strings"
 
 	"github.com/atotto/clipboard"
+	"github.com/spf13/cobra"
 )
 
+var (
+	verbose                   bool
+	copyCommandClipboard      bool
+	doNotExecuteGradleCommand bool
+	rootCmd                   = &cobra.Command{
+		Use:   "grad [path] [flags]",
+		Short: "Generate Gradle 🐘 command for a given path, passed as argument or from clipboard",
+		Long: `Generate Gradle command for a given file/folder path, relative to Gradle root project folder, passed as argument or from clipboard.
+
+The path argument can contain just the name of a class file (with / without .java): it will generate the command to run the integration test Gradle task for that class.
+If the path argument is a folder, it will generate the command to build that project ("build" task).`,
+		Args: cobra.MaximumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			runCommand(args)
+		},
+	}
+)
+
+func init() {
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "More verbose output")
+	rootCmd.Flags().BoolVarP(&copyCommandClipboard, "copy-to-clipboard", "c", false, "Copy the generated command to the clipboard")
+	rootCmd.Flags().BoolVarP(&doNotExecuteGradleCommand, "no-execute", "n", false, "Do not automatically run the generated command but simply print it")
+}
+
 func main() {
-	// fmt.Printf("%s: starting\n", os.Args[0])
+	rootCmd.Execute()
+}
+
+func runCommand(args []string) {
+	if verbose {
+		fmt.Println("Starting with parameters:", args)
+	}
 	var path string = ""
 
-	if len(os.Args) > 1 {
-		path = os.Args[1]
+	if len(args) > 0 {
+		path = args[0]
 	} else {
+		if verbose {
+			println("No path argument passed, trying to read from clipboard")
+		}
 		pathReadFromCp, err := clipboard.ReadAll()
 		if err != nil {
 			fmt.Printf("Failed to read from clipboard: %s\n", err)
@@ -34,29 +68,39 @@ func main() {
 		return
 	}
 	if foundPath != "" {
-		fmt.Println("Found file in:", foundPath)
+		if verbose {
+			fmt.Println("Found file in:", foundPath)
+		}
 		path = foundPath
+	} else if verbose {
+		fmt.Printf("No file found in the current directory (or subdirectories) with name %s. Assuming path is a Gradle path.", path)
 	}
 
 	cmd := transformPath(path)
 
 	// Copy the command to the clipboard
-	err = clipboard.WriteAll(cmd)
-	if err != nil {
-		fmt.Printf("Failed to copy to clipboard: %s\n", err)
-	} else {
-		fmt.Println("Command copied to clipboard")
+	if copyCommandClipboard {
+		err = clipboard.WriteAll(cmd)
+		if err != nil {
+			fmt.Printf("Failed to copy to clipboard: %s\n", err)
+		} else {
+			fmt.Println("Command copied to clipboard")
+		}
 	}
 
-	// fmt.Println(cmd)
-	// Execute the command in the terminal
-	fmt.Println("Executing command:", cmd)
-	command := exec.Command("zsh", "-c", cmd)
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	err = command.Run()
-	if err != nil {
-		fmt.Printf("Failed to execute command: %s\n", err)
+	fmt.Println("Gradle command:", cmd)
+
+	// Execute the command in the terminal:
+	if !doNotExecuteGradleCommand {
+		command := exec.Command("zsh", "-c", cmd)
+		command.Stdout = os.Stdout
+		command.Stderr = os.Stderr
+		err = command.Run()
+		if err != nil {
+			fmt.Printf("Failed to execute command: %s\n", err)
+		}
+	} else {
+		fmt.Println("Command not executed (flag -n / --no-execute passed)")
 	}
 }
 
