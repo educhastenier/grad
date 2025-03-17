@@ -16,6 +16,7 @@ var (
 	verbose                   bool
 	copyCommandClipboard      bool
 	doNotExecuteGradleCommand bool
+	gradleTask                string
 	rootCmd                   = &cobra.Command{
 		Use:   "grad [path] [flags]",
 		Short: "Generate Gradle 🐘 command for a given path, passed as argument or from clipboard",
@@ -34,6 +35,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "More verbose output")
 	rootCmd.Flags().BoolVarP(&copyCommandClipboard, "copy-to-clipboard", "c", false, "Copy the generated command to the clipboard")
 	rootCmd.Flags().BoolVarP(&doNotExecuteGradleCommand, "no-execute", "n", false, "Do not automatically run the generated command but simply print it")
+	rootCmd.Flags().StringVarP(&gradleTask, "task", "t", "", "Gradle task to run. Default 'integrationTest' for Java files, 'build' for folders")
 }
 
 func main() {
@@ -117,15 +119,26 @@ func transformPath(path string) string {
 			beforeClassName, className, _ := strings.Cut(rep, "src/test/java/")
 			className = strings.ReplaceAll(className, "/", ".")
 			beforeClassName = strings.TrimSuffix(beforeClassName, "/")
-			rep = fmt.Sprintf("%s:integrationTest --tests \"%s\"", beforeClassName, className)
+			task := "integrationTest"
+			if gradleTask != "" {
+				if verbose {
+					fmt.Printf("Overriding default task with '%s'\n", gradleTask)
+				}
+				task = gradleTask
+			}
+			rep = fmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
 		}
 	} else {
 		rep = strings.TrimSuffix(rep, "/")
-		rep += ":build"
+		if gradleTask != "" {
+			if verbose {
+				fmt.Printf("Overriding default task with '%s'\n", gradleTask)
+			}
+			rep += ":" + gradleTask
+		} else {
+			rep += ":build"
+		}
 	}
-	// parts := strings.Split(path, ":")
-	// className := parts[len(parts)-1]
-	// parts = parts[:len(parts)-1]
 
 	rep = strings.ReplaceAll(rep, "/", ":")
 	rep = fmt.Sprintf("./gradlew :%s", rep)
