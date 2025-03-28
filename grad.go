@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"os/exec"
@@ -9,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/atotto/clipboard"
+	"github.com/gookit/color"
+	"github.com/i582/cfmt/cmd/cfmt"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +45,7 @@ func main() {
 
 func runCommand(args []string) {
 	if verbose {
-		fmt.Println("Starting with parameters:", args)
+		PrintWarning("Starting with parameters: %s", args)
 	}
 	var path string = ""
 
@@ -52,11 +53,11 @@ func runCommand(args []string) {
 		path = args[0]
 	} else {
 		if verbose {
-			println("No path argument passed, trying to read from clipboard")
+			PrintWarning("No path argument passed, trying to read from clipboard")
 		}
 		pathReadFromCp, err := clipboard.ReadAll()
 		if err != nil {
-			fmt.Printf("Failed to read from clipboard: %s\n", err)
+			PrintError("Failed to read from clipboard: %s", err)
 			return
 		}
 		if pathReadFromCp != "" {
@@ -66,16 +67,16 @@ func runCommand(args []string) {
 
 	foundPath, err := findFile(".", path)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		PrintError("Error: %s", err)
 		return
 	}
 	if foundPath != "" {
 		if verbose {
-			fmt.Println("Found file in:", foundPath)
+			PrintOk("Found file in: %s", foundPath)
 		}
 		path = foundPath
 	} else if verbose {
-		fmt.Printf("No file found in the current directory (or subdirectories) with name %s. Assuming path is a Gradle path.\n", path)
+		PrintWarning("No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
 	}
 
 	cmd := transformPath(path)
@@ -84,13 +85,13 @@ func runCommand(args []string) {
 	if copyCommandClipboard {
 		err = clipboard.WriteAll(cmd)
 		if err != nil {
-			fmt.Printf("Failed to copy to clipboard: %s\n", err)
+			PrintError("Failed to copy to clipboard: %s", err)
 		} else {
-			fmt.Println("Command copied to clipboard")
+			PrintWarning("Command copied to clipboard")
 		}
 	}
 
-	fmt.Println("Gradle command:", cmd)
+	PrintOk("Gradle command: %s\n", color.OpBold.Render(cmd))
 
 	// Execute the command in the terminal:
 	if !doNotExecuteGradleCommand {
@@ -99,10 +100,10 @@ func runCommand(args []string) {
 		command.Stderr = os.Stderr
 		err = command.Run()
 		if err != nil {
-			fmt.Printf("Failed to execute command: %s\n", err)
+			PrintError("Failed to execute command: %s", err)
 		}
 	} else {
-		fmt.Println("Command not executed (flag -n / --no-execute passed)")
+		PrintWarning("Command not executed (flag -n / --no-execute passed)")
 	}
 }
 
@@ -122,17 +123,17 @@ func transformPath(path string) string {
 			task := "integrationTest"
 			if gradleTask != "" {
 				if verbose {
-					fmt.Printf("Overriding default task with '%s'\n", gradleTask)
+					PrintOk("Overriding default task with '%s'", gradleTask)
 				}
 				task = gradleTask
 			}
-			rep = fmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
+			rep = cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
 		}
 	} else {
 		rep = strings.TrimSuffix(rep, "/")
 		if gradleTask != "" {
 			if verbose {
-				fmt.Printf("Overriding default task with '%s'\n", gradleTask)
+				PrintOk("Overriding default task with '%s'", gradleTask)
 			}
 			rep += ":" + gradleTask
 		} else {
@@ -141,7 +142,7 @@ func transformPath(path string) string {
 	}
 
 	rep = strings.ReplaceAll(rep, "/", ":")
-	rep = fmt.Sprintf("./gradlew -PcreateTestReports :%s", rep)
+	rep = cfmt.Sprintf("./gradlew -PcreateTestReports :%s", rep)
 
 	return rep
 }
@@ -159,4 +160,16 @@ func findFile(root, filename string) (string, error) {
 		return nil
 	})
 	return foundPath, err
+}
+
+func PrintError(msg string, a ...interface{}) (n int, err error) {
+	return cfmt.Printf("{{"+msg+"}}::bold|red\n", a...)
+}
+
+func PrintOk(msg string, a ...interface{}) (n int, err error) {
+	return cfmt.Printf("{{"+msg+"}}::green\n", a...)
+}
+
+func PrintWarning(msg string, a ...interface{}) (n int, err error) {
+	return cfmt.Printf("{{"+msg+"}}::yellow\n", a...)
 }
