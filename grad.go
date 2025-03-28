@@ -75,7 +75,7 @@ func runCommand(args []string) {
 		}
 		path = foundPath
 	} else if verbose {
-		fmt.Printf("No file found in the current directory (or subdirectories) with name %s. Assuming path is a Gradle path.", path)
+		fmt.Printf("No file found in the current directory (or subdirectories) with name %s. Assuming path is a Gradle path.\n", path)
 	}
 
 	cmd := transformPath(path)
@@ -141,7 +141,7 @@ func transformPath(path string) string {
 	}
 
 	rep = strings.ReplaceAll(rep, "/", ":")
-	rep = fmt.Sprintf("./gradlew :%s", rep)
+	rep = fmt.Sprintf("./gradlew -PcreateTestReports :%s", rep)
 
 	return rep
 }
