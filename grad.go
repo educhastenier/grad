@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 	"github.com/gookit/color"
 	"github.com/i582/cfmt/cmd/cfmt"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -27,16 +29,34 @@ The path argument can contain just the name of a class file (with / without .jav
 If the path argument is a folder, it will generate the command to build that project ("build" task).`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
+			// Initialize variables after parsing command-line arguments
+			verbose = viper.GetBool("verbose")
+			copyCommandClipboard = viper.GetBool("copy-to-clipboard")
+			doNotExecuteGradleCommand = viper.GetBool("no-execute")
+			gradleTask = viper.GetString("task")
+
 			runCommand(args)
 		},
 	}
 )
 
 func init() {
-	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "More verbose output")
-	rootCmd.Flags().BoolVarP(&copyCommandClipboard, "copy-to-clipboard", "c", false, "Copy the generated command to the clipboard")
-	rootCmd.Flags().BoolVarP(&doNotExecuteGradleCommand, "no-execute", "n", false, "Do not automatically run the generated command but simply print it")
-	rootCmd.Flags().StringVarP(&gradleTask, "task", "t", "", "Gradle task to run. Default 'integrationTest' for Java files, 'build' for folders")
+	registerBooleanFlag("verbose", "v", "More verbose output")
+	registerBooleanFlag("copy-to-clipboard", "c", "Copy the generated command to the clipboard")
+	registerBooleanFlag("no-execute", "n", "Do not automatically run the generated command but simply print it")
+	registerStringFlag("task", "t", "", "Gradle task to run. Default 'integrationTest' for Java files, 'build' for folders")
+
+	initViper()
+}
+
+func registerBooleanFlag(longName, shortName, description string) {
+	rootCmd.Flags().BoolP(longName, shortName, false, description)
+	viper.BindPFlag(longName, rootCmd.Flags().Lookup(longName))
+}
+
+func registerStringFlag(longName, shortName, defaultValue, description string) {
+	rootCmd.Flags().StringP(longName, shortName, defaultValue, description)
+	viper.BindPFlag(longName, rootCmd.Flags().Lookup(longName))
 }
 
 func main() {
@@ -172,4 +192,17 @@ func PrintOk(msg string, a ...interface{}) (n int, err error) {
 
 func PrintWarning(msg string, a ...interface{}) (n int, err error) {
 	return cfmt.Printf("{{"+msg+"}}::yellow\n", a...)
+}
+
+func initViper() {
+	// Set up Viper to read from a configuration file
+	viper.SetConfigName("config")      // Name of the config file (without extension)
+	viper.SetConfigType("yaml")        // Config file type
+	viper.AddConfigPath(".")           // Path to look for the config file
+	viper.AddConfigPath("$HOME/.grad") // Fallback path for config file
+
+	// Read the configuration file
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Printf("Error reading Grad config file: %v\n", err)
+	}
 }
