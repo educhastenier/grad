@@ -15,6 +15,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	LOG_LEVEL_OK      = "ok"
+	LOG_LEVEL_WARNING = "warning"
+
+	GRADLE_TASK_INTEGRATION_TEST = "integrationTest"
+	GRADLE_TASK_BUILD            = "build"
+)
+
 var (
 	verbose                   bool
 	copyCommandClipboard      bool
@@ -67,13 +75,13 @@ func main() {
 }
 
 func runCommand(args []string) {
-	logVerbose("warning", "Starting with parameters: %s", args)
+	logVerbose(LOG_LEVEL_WARNING, "Starting with parameters: %s", args)
 	var path string = ""
 
 	if len(args) > 0 {
 		path = args[0]
 	} else {
-		logVerbose("warning", "No path argument passed, trying to read from clipboard")
+		logVerbose(LOG_LEVEL_WARNING, "No path argument passed, trying to read from clipboard")
 		pathReadFromCp, err := clipboard.ReadAll()
 		if err != nil {
 			PrintError("Failed to read from clipboard: %s", err)
@@ -90,10 +98,10 @@ func runCommand(args []string) {
 		return
 	}
 	if foundPath != "" {
-		logVerbose("ok", "Found file in: %s", foundPath)
+		logVerbose(LOG_LEVEL_OK, "Found file in: %s", foundPath)
 		path = foundPath
 	} else {
-		logVerbose("warning", "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
+		logVerbose(LOG_LEVEL_WARNING, "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
 	}
 
 	cmd := transformPath(path)
@@ -137,9 +145,9 @@ func transformPath(path string) string {
 			beforeClassName, className, _ := strings.Cut(rep, "src/test/java/")
 			className = strings.ReplaceAll(className, "/", ".")
 			beforeClassName = strings.TrimSuffix(beforeClassName, "/")
-			task := "integrationTest"
+			task := GRADLE_TASK_INTEGRATION_TEST
 			if gradleTask != "" {
-				logVerbose("ok", "Overriding default task with '%s'", gradleTask)
+				logVerbose(LOG_LEVEL_OK, "Overriding default task with '%s'", gradleTask)
 				task = gradleTask
 			}
 			rep = cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
@@ -147,10 +155,10 @@ func transformPath(path string) string {
 	} else {
 		rep = strings.TrimSuffix(rep, "/")
 		if gradleTask != "" {
-			logVerbose("ok", "Overriding default task with '%s'", gradleTask)
+			logVerbose(LOG_LEVEL_OK, "Overriding default task with '%s'", gradleTask)
 			rep += ":" + gradleTask
 		} else {
-			rep += ":build"
+			rep += ":" + GRADLE_TASK_BUILD
 		}
 	}
 
@@ -196,7 +204,7 @@ func initViper() {
 
 	// Read the configuration file
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Printf("Error reading Grad config file: %v\n", err)
+		fmt.Printf("Error reading Grad config file: %v. Using default configuration.\n", err)
 	}
 }
 
@@ -212,9 +220,9 @@ func logVerbose(level, msg string, a ...interface{}) {
 		return
 	}
 	switch level {
-	case "warning":
+	case LOG_LEVEL_WARNING:
 		PrintWarning(msg, a...)
-	case "ok":
+	case LOG_LEVEL_OK:
 		PrintOk(msg, a...)
 	default:
 		fmt.Printf(msg+"\n", a...)
