@@ -29,12 +29,7 @@ The path argument can contain just the name of a class file (with / without .jav
 If the path argument is a folder, it will generate the command to build that project ("build" task).`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Initialize variables after parsing command-line arguments
-			verbose = viper.GetBool("verbose")
-			copyCommandClipboard = viper.GetBool("copy-to-clipboard")
-			doNotExecuteGradleCommand = viper.GetBool("no-execute")
-			gradleTask = viper.GetString("task")
-
+			initializeFlags() // Extracted initialization logic
 			runCommand(args)
 		},
 	}
@@ -64,17 +59,13 @@ func main() {
 }
 
 func runCommand(args []string) {
-	if verbose {
-		PrintWarning("Starting with parameters: %s", args)
-	}
+	logVerbose("warning", "Starting with parameters: %s", args)
 	var path string = ""
 
 	if len(args) > 0 {
 		path = args[0]
 	} else {
-		if verbose {
-			PrintWarning("No path argument passed, trying to read from clipboard")
-		}
+		logVerbose("warning", "No path argument passed, trying to read from clipboard")
 		pathReadFromCp, err := clipboard.ReadAll()
 		if err != nil {
 			PrintError("Failed to read from clipboard: %s", err)
@@ -91,12 +82,10 @@ func runCommand(args []string) {
 		return
 	}
 	if foundPath != "" {
-		if verbose {
-			PrintOk("Found file in: %s", foundPath)
-		}
+		logVerbose("ok", "Found file in: %s", foundPath)
 		path = foundPath
-	} else if verbose {
-		PrintWarning("No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
+	} else {
+		logVerbose("warning", "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
 	}
 
 	cmd := transformPath(path)
@@ -107,11 +96,11 @@ func runCommand(args []string) {
 		if err != nil {
 			PrintError("Failed to copy to clipboard: %s", err)
 		} else {
-			PrintWarning("Command copied to clipboard")
+			PrintWarning("Command copied to clipboard") // Always logged
 		}
 	}
 
-	PrintOk("Gradle command: %s\n", color.OpBold.Render(cmd))
+	PrintOk("Gradle command: %s\n", color.OpBold.Render(cmd)) // Always logged
 
 	// Execute the command in the terminal:
 	if !doNotExecuteGradleCommand {
@@ -142,9 +131,7 @@ func transformPath(path string) string {
 			beforeClassName = strings.TrimSuffix(beforeClassName, "/")
 			task := "integrationTest"
 			if gradleTask != "" {
-				if verbose {
-					PrintOk("Overriding default task with '%s'", gradleTask)
-				}
+				logVerbose("ok", "Overriding default task with '%s'", gradleTask)
 				task = gradleTask
 			}
 			rep = cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
@@ -152,9 +139,7 @@ func transformPath(path string) string {
 	} else {
 		rep = strings.TrimSuffix(rep, "/")
 		if gradleTask != "" {
-			if verbose {
-				PrintOk("Overriding default task with '%s'", gradleTask)
-			}
+			logVerbose("ok", "Overriding default task with '%s'", gradleTask)
 			rep += ":" + gradleTask
 		} else {
 			rep += ":build"
@@ -204,5 +189,26 @@ func initViper() {
 	// Read the configuration file
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Printf("Error reading Grad config file: %v\n", err)
+	}
+}
+
+func initializeFlags() {
+	verbose = viper.GetBool("verbose")
+	copyCommandClipboard = viper.GetBool("copy-to-clipboard")
+	doNotExecuteGradleCommand = viper.GetBool("no-execute")
+	gradleTask = viper.GetString("task")
+}
+
+func logVerbose(level, msg string, a ...interface{}) {
+	if !verbose {
+		return
+	}
+	switch level {
+	case "warning":
+		PrintWarning(msg, a...)
+	case "ok":
+		PrintOk(msg, a...)
+	default:
+		fmt.Printf(msg+"\n", a...)
 	}
 }
