@@ -21,12 +21,20 @@ var (
 	doNotExecuteGradleCommand bool
 	gradleTask                string
 	rootCmd                   = &cobra.Command{
-		Use:   "grad [path] [flags]",
+		Use:   "grad [flags] [path]",
 		Short: "Generate Gradle 🐘 command for a given path, passed as argument or from clipboard",
 		Long: `Generate Gradle command for a given file/folder path, relative to Gradle root project folder, passed as argument or from clipboard.
 
 The path argument can contain just the name of a class file (with / without .java): it will generate the command to run the integration test Gradle task for that class.
-If the path argument is a folder, it will generate the command to build that project ("build" task).`,
+If the path argument is a folder, it will generate the command to build that project ("build" task).
+
+You can also use a configuration file to set default values for flags. The configuration file should be named 'config.yaml' and placed in the current directory or in $HOME/.grad
+
+'config.yaml' example:
+	verbose: false
+	copy-to-clipboard: false
+	no-execute: false
+	task: integrationTest`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			initializeFlags() // Extracted initialization logic

@@ -1,0 +1,14 @@
+# Example configuration file for the Grad tool.
+# Copy this file to the current directory or $HOME/.grad
+
+# Enable verbose output (true/false)
+verbose: false
+
+# Automatically copy the generated command to the clipboard (true/false)
+copy-to-clipboard: false
+
+# Do not execute the generated command (true/false)
+no-execute: false
+
+# Default Gradle task to run. Example: 'integrationTest', 'build', etc.
+task: integrationTest
