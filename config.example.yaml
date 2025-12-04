@@ -12,3 +12,7 @@ no-execute: false
 
 # Default Gradle task to run. Example: 'integrationTest', 'build', etc.
 task: integrationTest
+
+# Shell to use for command execution. Auto-detected from $SHELL if not set.
+# Examples: '/bin/bash', '/bin/zsh', '/usr/bin/fish'
+# shell: /bin/zsh

@@ -29,15 +29,26 @@ type Config struct {
 	CopyCommandClipboard      bool
 	DoNotExecuteGradleCommand bool
 	GradleTask                string
+	Shell                     string
 }
 
 // NewConfigFromViper creates a Config instance from viper settings
 func NewConfigFromViper() *Config {
+	// Auto-detect shell from environment if not configured
+	shell := viper.GetString("shell")
+	if shell == "" {
+		shell = os.Getenv("SHELL")
+		if shell == "" {
+			shell = "sh" // Default fallback
+		}
+	}
+
 	return &Config{
 		Verbose:                   viper.GetBool("verbose"),
 		CopyCommandClipboard:      viper.GetBool("copy-to-clipboard"),
 		DoNotExecuteGradleCommand: viper.GetBool("no-execute"),
 		GradleTask:                viper.GetString("task"),
+		Shell:                     shell,
 	}
 }
 
@@ -134,7 +145,7 @@ func runCommand(args []string, cfg *Config) {
 
 	// Execute the command in the terminal:
 	if !cfg.DoNotExecuteGradleCommand {
-		command := exec.Command("zsh", "-c", cmd)
+		command := exec.Command(cfg.Shell, "-c", cmd)
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
 		err = command.Run()
