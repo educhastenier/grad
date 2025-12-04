@@ -183,6 +183,11 @@ func transformPath(path string, cfg *Config) string {
 }
 
 func findFile(root, filename string) (string, error) {
+	// Early return if filename is empty
+	if filename == "" {
+		return "", nil
+	}
+
 	var foundPath string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -216,9 +221,10 @@ func initViper() {
 	viper.AddConfigPath(".")           // Path to look for the config file
 	viper.AddConfigPath("$HOME/.grad") // Fallback path for config file
 
-	// Read the configuration file
+	// Read the configuration file (optional)
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Printf("Error reading Grad config file: %v. Using default configuration.\n", err)
+		// Config file is optional, so this is just a warning
+		logVerbose(&Config{Verbose: true}, LOG_LEVEL_WARNING, "No config file found. Using default configuration.")
 	}
 }
 
