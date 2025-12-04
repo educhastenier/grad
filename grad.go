@@ -147,39 +147,65 @@ func runCommand(args []string, cfg *Config) {
 }
 
 func transformPath(path string, cfg *Config) string {
-	rep, _ := strings.CutPrefix(path, "community/")
-	rep = strings.TrimSuffix(rep, ".kts")
-	rep = strings.TrimSuffix(rep, "build.gradle")
+	cleanedPath := cleanPath(path)
 
-	// if rep ends with '.java':
-	if strings.HasSuffix(rep, ".java") {
-		rep = strings.TrimSuffix(rep, ".java")
-		if strings.Contains(rep, "src/test/java") {
-			// get the substring after 'src/test/java'
-			beforeClassName, className, _ := strings.Cut(rep, "src/test/java/")
-			className = strings.ReplaceAll(className, "/", ".")
-			beforeClassName = strings.TrimSuffix(beforeClassName, "/")
-			task := GRADLE_TASK_INTEGRATION_TEST
-			if cfg.GradleTask != "" {
-				logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
-				task = cfg.GradleTask
-			}
-			rep = cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
-		}
-	} else {
-		rep = strings.TrimSuffix(rep, "/")
-		if cfg.GradleTask != "" {
-			logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
-			rep += ":" + cfg.GradleTask
-		} else {
-			rep += ":" + GRADLE_TASK_BUILD
-		}
+	if strings.HasSuffix(path, ".java") {
+		return transformJavaTestPath(cleanedPath, cfg)
+	}
+	return transformDirectoryPath(cleanedPath, cfg)
+}
+
+// cleanPath removes common prefixes and suffixes from the path
+func cleanPath(path string) string {
+	path, _ = strings.CutPrefix(path, "community/")
+	path = strings.TrimSuffix(path, ".kts")
+	path = strings.TrimSuffix(path, "build.gradle")
+	path = strings.TrimSuffix(path, ".java")
+	return path
+}
+
+// transformJavaTestPath transforms a Java test file path into a Gradle test command
+func transformJavaTestPath(path string, cfg *Config) string {
+	if !strings.Contains(path, "src/test/java") {
+		return buildGradleCommand(strings.ReplaceAll(path, "/", ":"))
 	}
 
-	rep = strings.ReplaceAll(rep, "/", ":")
-	rep = cfmt.Sprintf("./gradlew -PcreateTestReports :%s", rep)
+	// Extract the part before and after 'src/test/java/'
+	beforeClassName, className, _ := strings.Cut(path, "src/test/java/")
+	className = strings.ReplaceAll(className, "/", ".")
+	beforeClassName = strings.TrimSuffix(beforeClassName, "/")
+	beforeClassName = strings.ReplaceAll(beforeClassName, "/", ":")
 
-	return rep
+	// Determine the task to use
+	task := GRADLE_TASK_INTEGRATION_TEST
+	if cfg.GradleTask != "" {
+		logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
+		task = cfg.GradleTask
+	}
+
+	gradlePath := cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
+	return buildGradleCommand(gradlePath)
+}
+
+// transformDirectoryPath transforms a directory path into a Gradle build command
+func transformDirectoryPath(path string, cfg *Config) string {
+	path = strings.TrimSuffix(path, "/")
+
+	// Determine the task to use
+	if cfg.GradleTask != "" {
+		logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
+		path += ":" + cfg.GradleTask
+	} else {
+		path += ":" + GRADLE_TASK_BUILD
+	}
+
+	gradlePath := strings.ReplaceAll(path, "/", ":")
+	return buildGradleCommand(gradlePath)
+}
+
+// buildGradleCommand wraps a Gradle path into the full command
+func buildGradleCommand(gradlePath string) string {
+	return cfmt.Sprintf("./gradlew -PcreateTestReports :%s", gradlePath)
 }
 
 func findFile(root, filename string) (string, error) {
