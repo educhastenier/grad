@@ -29,9 +29,15 @@ func TestCommunityBuildKtsPath(t *testing.T) {
 }
 
 func TestDefaultTaskOverride(t *testing.T) {
-	// fmt.Println("TestCommunityScriptKtsPath")
-	input := ""
-	expected := "./gradlew -PcreateTestReports :another:path:to:build"
+	// Save the original value and restore it after the test
+	originalTask := gradleTask
+	defer func() { gradleTask = originalTask }()
+
+	// Set a custom task to test override functionality
+	gradleTask = "assemble"
+
+	input := "community/another/path/to"
+	expected := "./gradlew -PcreateTestReports :another:path:to:assemble"
 
 	runTest(t, input, expected)
 }
