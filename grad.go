@@ -23,12 +23,26 @@ const (
 	GRADLE_TASK_BUILD            = "build"
 )
 
+// Config holds all configuration options for the grad command
+type Config struct {
+	Verbose                   bool
+	CopyCommandClipboard      bool
+	DoNotExecuteGradleCommand bool
+	GradleTask                string
+}
+
+// NewConfigFromViper creates a Config instance from viper settings
+func NewConfigFromViper() *Config {
+	return &Config{
+		Verbose:                   viper.GetBool("verbose"),
+		CopyCommandClipboard:      viper.GetBool("copy-to-clipboard"),
+		DoNotExecuteGradleCommand: viper.GetBool("no-execute"),
+		GradleTask:                viper.GetString("task"),
+	}
+}
+
 var (
-	verbose                   bool
-	copyCommandClipboard      bool
-	doNotExecuteGradleCommand bool
-	gradleTask                string
-	rootCmd                   = &cobra.Command{
+	rootCmd = &cobra.Command{
 		Use:   "grad [flags] [path]",
 		Short: "Generate Gradle 🐘 command for a given path, passed as argument or from clipboard",
 		Long: `Generate Gradle command for a given file/folder path, relative to Gradle root project folder, passed as argument or from clipboard.
@@ -45,8 +59,8 @@ You can also use a configuration file to set default values for flags. The confi
 	task: integrationTest`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			initializeFlags() // Extracted initialization logic
-			runCommand(args)
+			cfg := NewConfigFromViper()
+			runCommand(args, cfg)
 		},
 	}
 )
@@ -74,14 +88,14 @@ func main() {
 	rootCmd.Execute()
 }
 
-func runCommand(args []string) {
-	logVerbose(LOG_LEVEL_WARNING, "Starting with parameters: %s", args)
+func runCommand(args []string, cfg *Config) {
+	logVerbose(cfg, LOG_LEVEL_WARNING, "Starting with parameters: %s", args)
 	var path string = ""
 
 	if len(args) > 0 {
 		path = args[0]
 	} else {
-		logVerbose(LOG_LEVEL_WARNING, "No path argument passed, trying to read from clipboard")
+		logVerbose(cfg, LOG_LEVEL_WARNING, "No path argument passed, trying to read from clipboard")
 		pathReadFromCp, err := clipboard.ReadAll()
 		if err != nil {
 			PrintError("Failed to read from clipboard: %s", err)
@@ -98,16 +112,16 @@ func runCommand(args []string) {
 		return
 	}
 	if foundPath != "" {
-		logVerbose(LOG_LEVEL_OK, "Found file in: %s", foundPath)
+		logVerbose(cfg, LOG_LEVEL_OK, "Found file in: %s", foundPath)
 		path = foundPath
 	} else {
-		logVerbose(LOG_LEVEL_WARNING, "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
+		logVerbose(cfg, LOG_LEVEL_WARNING, "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
 	}
 
-	cmd := transformPath(path)
+	cmd := transformPath(path, cfg)
 
 	// Copy the command to the clipboard
-	if copyCommandClipboard {
+	if cfg.CopyCommandClipboard {
 		err = clipboard.WriteAll(cmd)
 		if err != nil {
 			PrintError("Failed to copy to clipboard: %s", err)
@@ -119,7 +133,7 @@ func runCommand(args []string) {
 	PrintOk("Gradle command: %s\n", color.OpBold.Render(cmd)) // Always logged
 
 	// Execute the command in the terminal:
-	if !doNotExecuteGradleCommand {
+	if !cfg.DoNotExecuteGradleCommand {
 		command := exec.Command("zsh", "-c", cmd)
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
@@ -132,7 +146,7 @@ func runCommand(args []string) {
 	}
 }
 
-func transformPath(path string) string {
+func transformPath(path string, cfg *Config) string {
 	rep, _ := strings.CutPrefix(path, "community/")
 	rep = strings.TrimSuffix(rep, ".kts")
 	rep = strings.TrimSuffix(rep, "build.gradle")
@@ -146,17 +160,17 @@ func transformPath(path string) string {
 			className = strings.ReplaceAll(className, "/", ".")
 			beforeClassName = strings.TrimSuffix(beforeClassName, "/")
 			task := GRADLE_TASK_INTEGRATION_TEST
-			if gradleTask != "" {
-				logVerbose(LOG_LEVEL_OK, "Overriding default task with '%s'", gradleTask)
-				task = gradleTask
+			if cfg.GradleTask != "" {
+				logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
+				task = cfg.GradleTask
 			}
 			rep = cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
 		}
 	} else {
 		rep = strings.TrimSuffix(rep, "/")
-		if gradleTask != "" {
-			logVerbose(LOG_LEVEL_OK, "Overriding default task with '%s'", gradleTask)
-			rep += ":" + gradleTask
+		if cfg.GradleTask != "" {
+			logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
+			rep += ":" + cfg.GradleTask
 		} else {
 			rep += ":" + GRADLE_TASK_BUILD
 		}
@@ -208,15 +222,8 @@ func initViper() {
 	}
 }
 
-func initializeFlags() {
-	verbose = viper.GetBool("verbose")
-	copyCommandClipboard = viper.GetBool("copy-to-clipboard")
-	doNotExecuteGradleCommand = viper.GetBool("no-execute")
-	gradleTask = viper.GetString("task")
-}
-
-func logVerbose(level, msg string, a ...interface{}) {
-	if !verbose {
+func logVerbose(cfg *Config, level, msg string, a ...interface{}) {
+	if !cfg.Verbose {
 		return
 	}
 	switch level {
