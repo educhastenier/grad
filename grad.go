@@ -19,6 +19,7 @@ const (
 	LogLevelWarning = "warning"
 
 	GradleTaskIntegrationTest = "integrationTest"
+	GradleTaskTest            = "test"
 	GradleTaskBuild           = "build"
 )
 
@@ -57,7 +58,7 @@ var (
 		Short: "Generate Gradle 🐘 command for a given path, passed as argument or from clipboard",
 		Long: `Generate Gradle command for a given file/folder path, relative to Gradle root project folder, passed as argument or from clipboard.
 
-The path argument can contain just the name of a class file (with / without .java): it will generate the command to run the integration test Gradle task for that class.
+The path argument can contain just the name of a class file (with / without .java): it will generate the command to run the appropriate Gradle test task for that class (integrationTest for *IT.java, test for *Test.java).
 If the path argument is a folder, it will generate the command to build that project ("build" task).
 
 You can also use a configuration file to set default values for flags. The configuration file should be named 'config.yaml' and placed in the current directory or in $HOME/.grad
@@ -79,7 +80,7 @@ func init() {
 	registerBooleanFlag("verbose", "v", "More verbose output")
 	registerBooleanFlag("copy-to-clipboard", "c", "Copy the generated command to the clipboard")
 	registerBooleanFlag("no-execute", "n", "Do not automatically run the generated command but simply print it")
-	registerStringFlag("task", "t", "", "Gradle task to run. Default 'integrationTest' for Java files, 'build' for folders")
+	registerStringFlag("task", "t", "", "Gradle task to run. Auto-detected for Java files (integrationTest for *IT.java, test for *Test.java), 'build' for folders")
 
 	initViper()
 }
@@ -189,7 +190,7 @@ func transformJavaTestPath(path string, cfg *Config) string {
 	beforeClassName = strings.ReplaceAll(beforeClassName, "/", ":")
 
 	// Determine the task to use
-	task := GradleTaskIntegrationTest
+	task := detectTestTask(className)
 	if cfg.GradleTask != "" {
 		logVerbose(cfg, LogLevelOk, "Overriding default task with '%s'", cfg.GradleTask)
 		task = cfg.GradleTask
@@ -197,6 +198,14 @@ func transformJavaTestPath(path string, cfg *Config) string {
 
 	gradlePath := cfmt.Sprintf("%s:%s --tests \"%s\"", beforeClassName, task, className)
 	return buildGradleCommand(gradlePath)
+}
+
+// detectTestTask returns the appropriate Gradle task based on the class name suffix
+func detectTestTask(className string) string {
+	if strings.HasSuffix(className, "IT") {
+		return GradleTaskIntegrationTest
+	}
+	return GradleTaskTest
 }
 
 // transformDirectoryPath transforms a directory path into a Gradle build command
