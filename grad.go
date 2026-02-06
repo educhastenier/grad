@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -16,11 +15,11 @@ import (
 )
 
 const (
-	LOG_LEVEL_OK      = "ok"
-	LOG_LEVEL_WARNING = "warning"
+	LogLevelOk      = "ok"
+	LogLevelWarning = "warning"
 
-	GRADLE_TASK_INTEGRATION_TEST = "integrationTest"
-	GRADLE_TASK_BUILD            = "build"
+	GradleTaskIntegrationTest = "integrationTest"
+	GradleTaskBuild           = "build"
 )
 
 // Config holds all configuration options for the grad command
@@ -34,7 +33,7 @@ type Config struct {
 
 // NewConfigFromViper creates a Config instance from viper settings
 func NewConfigFromViper() *Config {
-	// Auto-detect shell from environment if not configured
+	// Auto-detect shell from the environment if not configured
 	shell := viper.GetString("shell")
 	if shell == "" {
 		shell = os.Getenv("SHELL")
@@ -96,17 +95,19 @@ func registerStringFlag(longName, shortName, defaultValue, description string) {
 }
 
 func main() {
-	rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func runCommand(args []string, cfg *Config) {
-	logVerbose(cfg, LOG_LEVEL_WARNING, "Starting with parameters: %s", args)
-	var path string = ""
+	logVerbose(cfg, LogLevelWarning, "Starting with parameters: %s", args)
+	var path string
 
 	if len(args) > 0 {
 		path = args[0]
 	} else {
-		logVerbose(cfg, LOG_LEVEL_WARNING, "No path argument passed, trying to read from clipboard")
+		logVerbose(cfg, LogLevelWarning, "No path argument passed, trying to read from clipboard")
 		pathReadFromCp, err := clipboard.ReadAll()
 		if err != nil {
 			PrintError("Failed to read from clipboard: %s", err)
@@ -123,10 +124,10 @@ func runCommand(args []string, cfg *Config) {
 		return
 	}
 	if foundPath != "" {
-		logVerbose(cfg, LOG_LEVEL_OK, "Found file in: %s", foundPath)
+		logVerbose(cfg, LogLevelOk, "Found file in: %s", foundPath)
 		path = foundPath
 	} else {
-		logVerbose(cfg, LOG_LEVEL_WARNING, "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
+		logVerbose(cfg, LogLevelWarning, "No file found in the current directory (or subdirectories) with name '%s'. Assuming path is a Gradle path.", path)
 	}
 
 	cmd := transformPath(path, cfg)
@@ -188,9 +189,9 @@ func transformJavaTestPath(path string, cfg *Config) string {
 	beforeClassName = strings.ReplaceAll(beforeClassName, "/", ":")
 
 	// Determine the task to use
-	task := GRADLE_TASK_INTEGRATION_TEST
+	task := GradleTaskIntegrationTest
 	if cfg.GradleTask != "" {
-		logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
+		logVerbose(cfg, LogLevelOk, "Overriding default task with '%s'", cfg.GradleTask)
 		task = cfg.GradleTask
 	}
 
@@ -204,10 +205,10 @@ func transformDirectoryPath(path string, cfg *Config) string {
 
 	// Determine the task to use
 	if cfg.GradleTask != "" {
-		logVerbose(cfg, LOG_LEVEL_OK, "Overriding default task with '%s'", cfg.GradleTask)
+		logVerbose(cfg, LogLevelOk, "Overriding default task with '%s'", cfg.GradleTask)
 		path += ":" + cfg.GradleTask
 	} else {
-		path += ":" + GRADLE_TASK_BUILD
+		path += ":" + GradleTaskBuild
 	}
 
 	gradlePath := strings.ReplaceAll(path, "/", ":")
@@ -220,7 +221,7 @@ func buildGradleCommand(gradlePath string) string {
 }
 
 func findFile(root, filename string) (string, error) {
-	// Early return if filename is empty
+	// Early return if the filename is empty
 	if filename == "" {
 		return "", nil
 	}
@@ -232,7 +233,7 @@ func findFile(root, filename string) (string, error) {
 		}
 		if !info.IsDir() && (info.Name() == filename || info.Name() == filename+".java") {
 			foundPath = path
-			return filepath.SkipDir
+			return filepath.SkipAll // stops the entire walk
 		}
 		return nil
 	})
@@ -261,7 +262,7 @@ func initViper() {
 	// Read the configuration file (optional)
 	if err := viper.ReadInConfig(); err != nil {
 		// Config file is optional, so this is just a warning
-		logVerbose(&Config{Verbose: true}, LOG_LEVEL_WARNING, "No config file found. Using default configuration.")
+		logVerbose(&Config{Verbose: true}, LogLevelWarning, "No config file found. Using default configuration.")
 	}
 }
 
@@ -270,9 +271,9 @@ func logVerbose(cfg *Config, level, msg string, a ...interface{}) {
 		return
 	}
 	switch level {
-	case LOG_LEVEL_WARNING:
+	case LogLevelWarning:
 		PrintWarning(msg, a...)
-	case LOG_LEVEL_OK:
+	case LogLevelOk:
 		PrintOk(msg, a...)
 	default:
 		fmt.Printf(msg+"\n", a...)
