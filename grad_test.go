@@ -5,16 +5,16 @@ import (
 )
 
 func TestIntegrationTestDetection(t *testing.T) {
-	input := "subscription/bonita-integration-tests-sp/bonita-integration-tests-client/src/test/java/com/bonitasoft/engine/process/ProcessManagementIT.java"
-	expected := "./gradlew -PcreateTestReports :subscription:bonita-integration-tests-sp:bonita-integration-tests-client:integrationTest --tests \"com.bonitasoft.engine.process.ProcessManagementIT\""
+	input := "subscription/integration-tests-sp/integration-tests-client/src/test/java/com/company/runtime/access/ProcessManagementIT.java"
+	expected := "./gradlew -PcreateTestReports :subscription:integration-tests-sp:integration-tests-client:integrationTest --tests \"com.company.runtime.access.ProcessManagementIT\""
 
 	cfg := &Config{}
 	runTest(t, input, expected, cfg)
 }
 
 func TestUnitTestDetection(t *testing.T) {
-	input := "subscription/bonita-engine/src/test/java/com/bonitasoft/engine/service/MyServiceTest.java"
-	expected := "./gradlew -PcreateTestReports :subscription:bonita-engine:test --tests \"com.bonitasoft.engine.service.MyServiceTest\""
+	input := "subscription/project-runtime/src/test/java/com/company/runtime/service/MyServiceTest.java"
+	expected := "./gradlew -PcreateTestReports :subscription:project-runtime:test --tests \"com.company.runtime.service.MyServiceTest\""
 
 	cfg := &Config{}
 	runTest(t, input, expected, cfg)
