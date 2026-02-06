@@ -240,16 +240,16 @@ func findFile(root, filename string) (string, error) {
 	return foundPath, err
 }
 
-func PrintError(msg string, a ...interface{}) (n int, err error) {
-	return cfmt.Printf("{{"+msg+"}}::bold|red\n", a...)
+func PrintError(msg string, a ...interface{}) {
+	cfmt.Printf("{{"+msg+"}}::bold|red\n", a...)
 }
 
-func PrintOk(msg string, a ...interface{}) (n int, err error) {
-	return cfmt.Printf("{{"+msg+"}}::green\n", a...)
+func PrintOk(msg string, a ...interface{}) {
+	cfmt.Printf("{{"+msg+"}}::green\n", a...)
 }
 
-func PrintWarning(msg string, a ...interface{}) (n int, err error) {
-	return cfmt.Printf("{{"+msg+"}}::yellow\n", a...)
+func PrintWarning(msg string, a ...interface{}) {
+	cfmt.Printf("{{"+msg+"}}::yellow\n", a...)
 }
 
 func initViper() {
