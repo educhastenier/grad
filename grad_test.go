@@ -20,6 +20,22 @@ func TestUnitTestDetection(t *testing.T) {
 	runTest(t, input, expected, cfg)
 }
 
+func TestGroovyIntegrationTestDetection(t *testing.T) {
+	input := "subscription/integration-tests-sp/src/test/groovy/com/company/runtime/access/ProcessManagementIT.groovy"
+	expected := "./gradlew -PcreateTestReports :subscription:integration-tests-sp:integrationTest --tests \"com.company.runtime.access.ProcessManagementIT\""
+
+	cfg := &Config{}
+	runTest(t, input, expected, cfg)
+}
+
+func TestGroovyUnitTestDetection(t *testing.T) {
+	input := "subscription/project-runtime/src/test/groovy/com/company/runtime/service/MyServiceTest.groovy"
+	expected := "./gradlew -PcreateTestReports :subscription:project-runtime:test --tests \"com.company.runtime.service.MyServiceTest\""
+
+	cfg := &Config{}
+	runTest(t, input, expected, cfg)
+}
+
 func TestCommunityBuildGradlePath(t *testing.T) {
 	// fmt.Println("TestCommunityBuildGradlePath")
 	input := "community/some/path/to/build.gradle"

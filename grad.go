@@ -58,7 +58,7 @@ var (
 		Short: "Generate Gradle 🐘 command for a given path, passed as argument or from clipboard",
 		Long: `Generate Gradle command for a given file/folder path, relative to Gradle root project folder, passed as argument or from clipboard.
 
-The path argument can contain just the name of a class file (with / without .java): it will generate the command to run the appropriate Gradle test task for that class (integrationTest for *IT.java, test for *Test.java).
+The path argument can contain just the name of a class file (with / without .java/.groovy): it will generate the command to run the appropriate Gradle test task for that class (integrationTest for *IT, test for *Test).
 If the path argument is a folder, it will generate the command to build that project ("build" task).
 
 You can also use a configuration file to set default values for flags. The configuration file should be named 'config.yaml' and placed in the current directory or in $HOME/.grad
@@ -80,7 +80,7 @@ func init() {
 	registerBooleanFlag("verbose", "v", "More verbose output")
 	registerBooleanFlag("copy-to-clipboard", "c", "Copy the generated command to the clipboard")
 	registerBooleanFlag("no-execute", "n", "Do not automatically run the generated command but simply print it")
-	registerStringFlag("task", "t", "", "Gradle task to run. Auto-detected for Java files (integrationTest for *IT.java, test for *Test.java), 'build' for folders")
+	registerStringFlag("task", "t", "", "Gradle task to run. Auto-detected for Java/Groovy test files (integrationTest for *IT, test for *Test), 'build' for folders")
 
 	initViper()
 }
@@ -159,11 +159,15 @@ func runCommand(args []string, cfg *Config) {
 	}
 }
 
+func isTestFile(path string) bool {
+	return strings.HasSuffix(path, ".java") || strings.HasSuffix(path, ".groovy")
+}
+
 func transformPath(path string, cfg *Config) string {
 	cleanedPath := cleanPath(path)
 
-	if strings.HasSuffix(path, ".java") {
-		return transformJavaTestPath(cleanedPath, cfg)
+	if isTestFile(path) {
+		return transformTestPath(cleanedPath, cfg)
 	}
 	return transformDirectoryPath(cleanedPath, cfg)
 }
@@ -174,17 +178,27 @@ func cleanPath(path string) string {
 	path = strings.TrimSuffix(path, ".kts")
 	path = strings.TrimSuffix(path, "build.gradle")
 	path = strings.TrimSuffix(path, ".java")
+	path = strings.TrimSuffix(path, ".groovy")
 	return path
 }
 
-// transformJavaTestPath transforms a Java test file path into a Gradle test command
-func transformJavaTestPath(path string, cfg *Config) string {
-	if !strings.Contains(path, "src/test/java") {
+// transformTestPath transforms a test file path into a Gradle test command
+func transformTestPath(path string, cfg *Config) string {
+	// Try both src/test/java and src/test/groovy
+	testSrcDir := ""
+	for _, dir := range []string{"src/test/java", "src/test/groovy"} {
+		if strings.Contains(path, dir) {
+			testSrcDir = dir
+			break
+		}
+	}
+
+	if testSrcDir == "" {
 		return buildGradleCommand(strings.ReplaceAll(path, "/", ":"))
 	}
 
-	// Extract the part before and after 'src/test/java/'
-	beforeClassName, className, _ := strings.Cut(path, "src/test/java/")
+	// Extract the part before and after the test source directory
+	beforeClassName, className, _ := strings.Cut(path, testSrcDir+"/")
 	className = strings.ReplaceAll(className, "/", ".")
 	beforeClassName = strings.TrimSuffix(beforeClassName, "/")
 	beforeClassName = strings.ReplaceAll(beforeClassName, "/", ":")
@@ -240,7 +254,7 @@ func findFile(root, filename string) (string, error) {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && (info.Name() == filename || info.Name() == filename+".java") {
+		if !info.IsDir() && (info.Name() == filename || info.Name() == filename+".java" || info.Name() == filename+".groovy") {
 			foundPath = path
 			return filepath.SkipAll // stops the entire walk
 		}
